@@ -138,7 +138,7 @@ end
 
 %%
 function visualize_plots(a)
-
+%Set the basic function in terms of Fourier series
 
     global s L;
     e1=1;
