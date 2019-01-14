@@ -30,7 +30,7 @@ s=linspace(0,L,steps);
 %%
 options = optimoptions('fmincon', 'OutputFcn', @outfun,'Display','iter-detailed','Algorithm','interior-point');
 options.MaxFunctionEvaluations = 1000000;
-options.MaxIterations = 1000000;
+options.MaxIterations = 600;
 options.OptimalityTolerance=1e-20;
 options.ConstraintTolerance=1e-20;
 options.StepTolerance=1e-40;
