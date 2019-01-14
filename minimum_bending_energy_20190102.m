@@ -1,109 +1,127 @@
-% currently there some bugs with this code 2019_1_4
-% 1. the length of the paper strip is not fixed
-% 2. the object function is not based on real parameters
-% 3. should add inequality constrains for some cases to cover
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%Ritz method in one dimension with fmincon
+%%%This filed is created by Zachary Chunli JIANG
+%%%Date: 2018/Dec/22
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-clear all
-clc 
-global t history steps
-global arc_length
+%%
+%Ref. One dimensional finite element Schaums ,F. Scheid,Numerical Analysis  
+%Page 434
+%In Hirai's IJRR Paper, basic function is expand in Fourier format
+%fmincon is adopted to optimize the minimal energy
+%Details: https://www.mathworks.com/help/optim/ug/unconstrained-nonlinear-optimization-algorithms.html
 
-arc_length = 3;
-steps = 100;
-history = zeros(1,steps);
+%%
+%Clear the workspace parameters
+clear all;
+clc;
+close all;
 
-t_min = 0;
-t_max = 1;
+%Set the basic function in terms of Fourier series
+global steps;
+global s L;
 
-t = linspace(t_min,t_max,steps);
+%s is in terms of the coordinate system of the object
+%L is the total length of the paper strip
+steps=80;
+s=linspace(0,1,steps);
+L=1; 
 
-% 
- x0 = 1*ones(1,steps);
- x0(1)=0;
- x0(end)=0;
+%%
+options = optimoptions('fmincon', 'OutputFcn', @outfun,'Display','iter-detailed','Algorithm','interior-point');
+options.MaxFunctionEvaluations = 1000000;
+options.MaxIterations = 1000000;
+options.OptimalityTolerance=1e-20;
+options.ConstraintTolerance=1e-20;
+options.StepTolerance=1e-40;
 
- x0 = (0.5-abs(t_max/2-t))*arc_length;
-
- %x0 = 1-cos(t*2*pi/t_max);
-
-options = optimoptions('fmincon', 'OutputFcn', @outfun,'Display','iter-detailed','Algorithm','sqp');
-options.MaxFunctionEvaluations = 10000000;
-options.MaxIterations = 2000;
-options.StepTolerance = 1e-40;
-options.OptimalityTolerance=1e-40;
-options.ConstraintTolerance=1e-40;
-
-x = fmincon(@bending_energy, x0,[],[],[],[],[],[], @constraint_function, options);
-
-
-[dxdt, d2xdt] = compute_derivatives(x,t);
+% Invoke optimization with a strating guess
+a=[0.1,0.1,1,1,0.1,0.1,0.1,0.1,0.1,0.1];
+[a,fval] = fmincon(@total_energy, a,[],[],[],[],[],[], @constraint_function, options);
 
 figure
-plot(t,x)
-% title('t,x relation')
+% plot(s,theta)
 % hold on
-% plot(t, dxdt)
-% title('t, dxdt relation')
-% hold on
-% plot(t, d2xdt)
-% title('t,d2xtx relation')
-
-% axis([0 3 0 2])
-
-
-function obj_value = bending_energy(x)
-
-    global t history 
+e1=1;
+e2=s;
+e3=sin(2*pi.*s/L);
+e4=cos(2*pi.*s/L);
+e5=sin(4*pi.*s/L);
+e6=cos(4*pi.*s/L);
+e7=sin(6*pi.*s/L);
+e8=cos(6*pi.*s/L);
+e9=sin(8*pi.*s/L);
+e10=cos(8*pi.*s/L);
     
-    
-    [dxdt, d2xdt] = compute_derivatives(x,t);    
-    
-    del_x = x - history(end,:);
-       
-        
-    obj_value = trapz(t,d2xdt.^2);
+theta=a(1)*e1+a(2)*e2+a(3)*e3+a(4)*e4+a(5)*e5 ...
+    +a(6)*e6+a(7)*e7+a(8)*e8+a(9)*e9+a(10)*e10;
 
+xc = cumtrapz(s, cos(theta));
+yc = cumtrapz(s, sin(theta));
+
+plot(xc, yc)
+
+
+%%
+function obj_value = total_energy(a)
+
+    global s L steps;            
+    %Apply Fourier's form to approximate THETA function 
+    e1=1;
+    e2=s;
+    e3=sin(2*pi.*s/L);
+    e4=cos(2*pi.*s/L);
+    e5=sin(4*pi.*s/L);
+    e6=cos(4*pi.*s/L);
+    e7=sin(6*pi.*s/L);
+    e8=cos(6*pi.*s/L);
+    e9=sin(8*pi.*s/L);
+    e10=cos(8*pi.*s/L);
+    
+    theta=a(1)*e1+a(2)*e2+a(3)*e3+a(4)*e4+a(5)*e5 ...
+    +a(6)*e6+a(7)*e7+a(8)*e8+a(9)*e9+a(10)*e10;
+
+    dtheta_ds=diff(theta)./diff(s);
+    
+    %Currently only bending energy considered
+    obj_value = trapz(s(1:end-1),(dtheta_ds).^2);
 
 end
+%%
+function [c,c_eq] = constraint_function(a)
 
-function [c,c_eq] = constraint_function(x)
+    global s L;
+    e1=1;
+    e2=s;
+    e3=sin(2*pi.*s/L);
+    e4=cos(2*pi.*s/L);
+    e5=sin(4*pi.*s/L);
+    e6=cos(4*pi.*s/L);
+    e7=sin(6*pi.*s/L);
+    e8=cos(6*pi.*s/L);
+    e9=sin(8*pi.*s/L);
+    e10=cos(8*pi.*s/L);
+    
+    theta=a(1)*e1+a(2)*e2+a(3)*e3+a(4)*e4+a(5)*e5 ...
+    +a(6)*e6+a(7)*e7+a(8)*e8+a(9)*e9+a(10)*e10;
 
-    
-    global t arc_length
-    
-    [dxdt, d2xdt] = compute_derivatives(x,t);    
+    %end point tangent constraints
+    c_eq_1 = theta(1);
+    %c_eq_2 = theta(end)+pi/6;
+    %end point constraints (x,y);
+    x_e = 0.8;
+    y_e = 0.2;
+    c_eq_3 = trapz(s, cos(theta))-x_e;
+    c_eq_4 = trapz(s, sin(theta))-y_e;
 
+    yc = cumtrapz(s, sin(theta));
     
-    c_eq_1 = x(1);
-    c_eq_2 = x(end);
-
-    c_eq_3 = dxdt(1);
-    c_eq_4 = dxdt(end)+pi/2;
-    
-    int_ds = trapz(t, sqrt(1+dxdt.^2));
-    c_eq_5 = int_ds-arc_length;
-    
-    
-    c_eq = [c_eq_1; c_eq_2; c_eq_3; c_eq_4; c_eq_5];
-
-    c=[];
+    c_ineq_1= yc;
+    c_eq = [c_eq_1; c_eq_3; c_eq_4];  
+    c=[-c_ineq_1];
 end
 
-function [dxdt, d2xdt] = compute_derivatives(x,t)
-
-    dt = gradient(t);
-    dx = gradient(x);
-    
-    dxdt = dx./dt;
-    
-    d2xdt = gradient(dxdt)./dt;
-    
-end
-
-
-
-
-
+%%
 function stop = outfun(x, optimValues, state)
     stop = false;
 
@@ -117,15 +135,32 @@ function stop = outfun(x, optimValues, state)
     
 end
 
-function visualize_plots(x)
+%%
+function visualize_plots(a)
 
-    global t
+
+    global s L;
+    e1=1;
+    e2=s;
+    e3=sin(2*pi.*s/L);
+    e4=cos(2*pi.*s/L);
+    e5=sin(4*pi.*s/L);
+    e6=cos(4*pi.*s/L);
+    e7=sin(6*pi.*s/L);
+    e8=cos(6*pi.*s/L);
+    e9=sin(8*pi.*s/L);
+    e10=cos(8*pi.*s/L);
     
-    plot(t, x)
+    theta=a(1)*e1+a(2)*e2+a(3)*e3+a(4)*e4+a(5)*e5 ...
+    +a(6)*e6+a(7)*e7+a(8)*e8+a(9)*e9+a(10)*e10;
+
+    xc = cumtrapz(s, cos(theta));
+    yc = cumtrapz(s, sin(theta));
+    
+    plot(xc,yc)
     
     drawnow
     
     hold on
     
 end
-
