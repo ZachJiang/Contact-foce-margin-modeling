@@ -23,8 +23,9 @@ global s L;
 %s is in terms of the coordinate system of the object
 %L is the total length of the paper strip
 steps=80;
-s=linspace(0,1,steps);
 L=1; 
+s=linspace(0,L,steps);
+
 
 %%
 options = optimoptions('fmincon', 'OutputFcn', @outfun,'Display','iter-detailed','Algorithm','interior-point');
@@ -109,8 +110,8 @@ function [c,c_eq] = constraint_function(a)
     c_eq_1 = theta(1);
     %c_eq_2 = theta(end)+pi/6;
     %end point constraints (x,y);
-    x_e = 0.8;
-    y_e = 0.2;
+    x_e = 0.8*L;
+    y_e = 0.2*L;
     c_eq_3 = trapz(s, cos(theta))-x_e;
     c_eq_4 = trapz(s, sin(theta))-y_e;
 
