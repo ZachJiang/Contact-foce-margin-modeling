@@ -1,6 +1,6 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%Ritz method in one dimension with fmincon
-%%%This filed is created by Zachary Chunli JIANG
+%%%This file is created by Zachary Chunli JIANG
 %%%Date: 2018/Dec/22
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -9,7 +9,6 @@
 %Page 434
 %In Hirai's IJRR Paper, basic function is expand in Fourier format
 %fmincon is adopted to optimize the minimal energy
-%Details: https://www.mathworks.com/help/optim/ug/unconstrained-nonlinear-optimization-algorithms.html
 
 %%
 %Clear the workspace parameters
@@ -17,7 +16,7 @@ clear all;
 clc;
 close all;
 
-%Set the basic function in terms of Fourier series
+
 global steps;
 global s L;
 
@@ -42,6 +41,7 @@ a=[0.1,0.1,1,1,0.1,0.1,0.1,0.1,0.1,0.1];
 figure
 % plot(s,theta)
 % hold on
+%Set the basic function in terms of Fourier series
 e1=1;
 e2=s;
 e3=sin(2*pi.*s/L);
@@ -64,7 +64,7 @@ plot(xc, yc)
 
 %%
 function obj_value = total_energy(a)
-
+%Set the basic function in terms of Fourier series
     global s L steps;            
     %Apply Fourier's form to approximate THETA function 
     e1=1;
@@ -89,7 +89,7 @@ function obj_value = total_energy(a)
 end
 %%
 function [c,c_eq] = constraint_function(a)
-
+%Set the basic function in terms of Fourier series
     global s L;
     e1=1;
     e2=s;
