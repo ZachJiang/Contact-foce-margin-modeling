@@ -22,7 +22,7 @@ figure;
 global options;
 options = optimoptions('fmincon', 'OutputFcn', @outfun,'Display','iter-detailed','Algorithm','interior-point');
 options.MaxFunctionEvaluations = 1000000;
-options.MaxIterations = 600;
+options.MaxIterations = 3000;
 options.OptimalityTolerance=1e-20;
 options.ConstraintTolerance=1e-20;
 options.StepTolerance=1e-40;
@@ -32,19 +32,20 @@ options.StepTolerance=1e-40;
 global steps;
 global s L;
 global x_end y_end;
+global concave_up_flex concave_down_flex total_flex_energy;
 %s is in terms of the coordinate system of the object
 %L is the total length of the paper strip
 steps=100;
-L=50; 
+L=70; 
 s=linspace(0,L,steps);
 
 %%
 xo=0;
 yo=0;
-x0=(0:(L*1.5+80))-L*1.5;
-y0=zeros(1,(L*1.5+81));
+x0=(0:(L*1.5+160))-L*1.5-80;
+y0=zeros(1,(L*1.5+161));
 plot(x0,y0,'k');
-axis([-L*1.5 80 -20 60]);
+axis([-L*1.5-80 80 -20 60]);
 drawnow
 hold on;
 drawnow
@@ -55,7 +56,9 @@ hold on;
 
 
 %%
-for theta1=0:1:0
+%This is the main logic
+for theta1=12:1:12
+    
     x1=30/12*theta1+50;
     z1=(theta1-100.6)/-0.8853;
     %disp('the current data set is: ');
@@ -66,7 +69,7 @@ for theta1=0:1:0
     z=z1+20; %90:1:110 and 20 is the offset
     theta=theta1*pi/180;%0:pi/180:12*pi/180/
 
-    p=0.00:0.002:0.3; % pressure is in MPa
+    p=0.00:0.002:0.4; % pressure is in MPa
     gamma=45*pi/180;
     m=45;
     n=40;
@@ -96,6 +99,9 @@ for theta1=0:1:0
     x5=x4+j(sj).*sin(phi)-k(sj).*cos(phi);
     z5=z4-j(sj).*cos(phi)-k(sj).*sin(phi);
     for i1=1:size(p,2)
+        if z5(i1)<0
+            z5(i1)=0;
+        end
         scatter(x5(i1),z5(i1),3,'r');
         drawnow
         endpoint=[x5(i1),z5(i1)];
@@ -120,8 +126,24 @@ end
 grid on;
 hold off;
 %%
+% plot out the flex energy
+figure;
+nof=1:1:size(concave_down_flex,2);
+plot(nof,concave_up_flex);
+legend('concave_up_flex');
+hold on;
+plot(nof,concave_down_flex);
+legend('concave_down_flex');
+hold on;
+plot(nof,total_flex_energy);
+legend('total_flex_energy');
+hold off;
+
+
+%%
 function start_optimization()
-    
+
+    global concave_up_flex concave_down_flex total_flex_energy;
     global s L options;
     a=[0.1,0.1,1,1,0.1,0.1,0.1,0.1,0.1,0.1];
     [a,fval] = fmincon(@total_energy, a,[],[],[],[],[],[], @constrain_function, options);
@@ -135,15 +157,15 @@ function start_optimization()
     hold on;
     
     %calculate flex energies;
-    concave_up_flex=concave_up_flex_energy(a);
-    concave_down_flex=concave_down_flex_energy(a);
-    total_flex_energy=concave_up_flex+concave_down_flex;
-    disp('concave_up_energy:');
-    disp(concave_up_flex);
-    disp('concave_down_energy:');
-    disp(concave_down_flex);
-    disp('total_flex_energy:');
-    disp(total_flex_energy);
+     concave_up_flex=[concave_up_flex, concave_up_flex_energy(a)];
+     concave_down_flex=[concave_down_flex, concave_down_flex_energy(a)];
+     total_flex_energy=concave_up_flex+concave_down_flex;
+%     disp('concave_up_energy:');
+%     disp(concave_up_flex);
+%     disp('concave_down_energy:');
+%     disp(concave_down_flex);
+%     disp('total_flex_energy:');
+%     disp(total_flex_energy);
 end
 
 %%
@@ -270,6 +292,7 @@ function flex_up=concave_up_flex_energy(a)
     flex_up=1/2*trapz(s(1:inflection_point1)/L,(dtheta_ds(1:inflection_point1)).^2);
 end
 
+%%
 function flex_down=concave_down_flex_energy(a)
     global s L;
     theta=ritz_fourier_model(a);
