@@ -6,9 +6,18 @@ clear all
 
 global var_s x_end y_end
 
+paper_length = 0.125;
+paper_width = 0.050;
+flex_rigidity_per_lw = 0.01615; %Unit Newtons
+flex_rigidity = flex_rigidity_per_lw*paper_length*paper_width
+
+return 
+
+% flex_rigidity = 1;
+
 intervals = 70; %number of sample point intervals
 
-arc_length = 1; %Fixed curve length constraint
+arc_length = paper_length; %Fixed curve length constraint
 
 var_s = linspace(0, arc_length, intervals); %arclength variable
 
@@ -21,8 +30,6 @@ var_theta_init = 1*ones(1, length(var_s)) +...
 
 options = optimoptions('fmincon',...
                     'OutputFcn', @outfun,...
-                    'Display',...
-                    'iter-detailed',...
                     'Algorithm',...
                     'interior-point');
                 
@@ -33,9 +40,14 @@ options.OptimalityTolerance= 1e-2; % important parameter
 options.StepTolerance = 1e-3; %important parameter. try commenting this and
 %change optimalityTolerance to 1e-2
 
-x_bound = [0.5, 1];
-y_bound = [0.0,0.5];
-size = 15;
+x_bound = [0.3*arc_length, 0.98*arc_length];
+y_bound = [0.0,0.45*arc_length];
+
+% sizey = 20;
+% sizex = ceil(sizey*((x_bound(2)-x_bound(1))/(y_bound(2)-y_bound(1))));
+
+
+size = 20;
 
 [X, Y] = sampleEnergyDomain(x_bound, y_bound, size);
 
@@ -43,89 +55,100 @@ U_flex_matrix = zeros(size);
 U_flex_CU_matrix = zeros(size);
 U_flex_CD_matrix = zeros(size);
 
+CoF_matrix = zeros(size);
 
-ones_lt_flipped = flip(tril(ones(size)));
+
+ones_lt_flipped = flip(tril(ones(size),1));
 ut_idxes = find(ones_lt_flipped>0);
 
+ 
+figure
+axis equal
+% axis([0 1 0 1])
+% plot_boundary(arc_length)
 
 for xidx = ut_idxes.'
-    
+
         x_end = X(xidx);
         y_end = Y(xidx);
         
-        
-        var_theta = fmincon(@objectiveFunction,...
+
+        [var_theta,fval,exitflag,output,lambda,grad,hessian] = fmincon(@objectiveFunction,...
                         var_theta_init,...
                         [],[],[],[],[],[],...
                         @constraintFunctions,...
                         options);
-        
+
         [xc, yc] = arcLengthToCartesian(var_theta, var_s);
-        plot(xc, yc)
+        plot(1000*(xc-paper_length),1000*yc)
         drawnow
         hold on
-        
-        %create matrix for u flex
-%         U_flex_matrix(xidx) = computeFlexuralEnergy(var_theta, var_s);
 
-        %Compute inflextion point and inflexion index of the array
-        [inflexion_point, inf_idx] = computeInflexionPoint(xc, yc);
-        inf_idx = inf_idx-1;
+        U_flex_matrix(xidx) = flex_rigidity*computeFlexuralEnergy(var_theta, var_s);
+        [U_flex_CU_matrix(xidx), U_flex_CD_matrix(xidx)] = compute_CUP_CAP_energies(var_theta, var_s);
+
+
+        CoF_matrix(xidx) = computeCoF(lambda.eqnonlin(2),lambda.eqnonlin(3), var_theta(end));
+
+
+%             %put force and normal vectors inside a function.
+%             constraint_f_vec = [lambda.eqnonlin(2),lambda.eqnonlin(3)];
+%             constraint_f_vec = 0.05*constraint_f_vec/norm(constraint_f_vec);
 % 
-        U_flex_CU_matrix(xidx) = computeFlexuralEnergy(var_theta(1:inf_idx), var_s(1:inf_idx));
+%             quiver(x_end,y_end,constraint_f_vec(1),constraint_f_vec(2), 'Color', 'm')
+%             drawnow
+%             hold on
 % 
-%         U_flex_CD_matrix(xidx) = computeFlexuralEnergy(var_theta(inf_idx:end), var_s(inf_idx:end));
-        
+%             if var_theta(end)<=0
+%                 normal_vec = 0.05*[-sin(var_theta(end)), cos(var_theta(end)), 0];
+%             else
+%                 normal_vec = 0.05*[sin(var_theta(end)), -cos(var_theta(end)), 0];
+%             end
+% 
+%             quiver(x_end,y_end,normal_vec(1),normal_vec(2), 'Color', 'k')
+%             drawnow
+%             hold on
+
+
+
 end
 
-% figure 
-% surf(X,Y,U_flex_CD_matrix)
-% hold on
-% surf(X,Y,U_flex_CU_matrix)
-% hold on
+
 
 %Convert zeros to NaN
-% U_flex_matrix(U_flex_matrix==0) = NaN; 
+U_flex_matrix(U_flex_matrix==0) = NaN; 
 U_flex_CU_matrix(U_flex_CU_matrix==0) = NaN; 
+U_flex_CD_matrix(U_flex_CD_matrix==0) = NaN; 
 
-surf(X,Y,U_flex_CU_matrix)
+CoF_matrix(CoF_matrix==0) = NaN;
+
+
+% surf(1000*(X-paper_length),1000*Y,U_flex_matrix)
+% hold on
+surf(1000*(X-paper_length),1000*Y,U_flex_matrix)
 hold on
+
 
 hx = (x_bound(2)-x_bound(1))/(size-1);
 hy = (y_bound(2)-y_bound(1))/(size-1);
 
-[gx,gy] = computeNumericalGradient(U_flex_CU_matrix, hx, hy);
+[gx,gy] = computeNumericalGradient(U_flex_matrix, hx, hy);
 
 figure
 axis equal
-contour(X,Y,U_flex_CU_matrix)
-hold on
-startx = x_bound(1)*ones(1,size);
-starty = linspace(y_bound(1),y_bound(2),size);
 
-streamline(X,Y,-gx,-gy,startx,starty)
-hold on
+%start points on upper triangular line
+% startx = linspace(0.40, 0.90, size);
+% starty = -1*startx + 0.90; 
+% streamline(X,Y,gx,gy,startx,starty)
+% hold on
 quiver(X,Y,-gx,-gy)
 
-% figure
-% % plot(s,theta)
-% % hold on
-% [xc, yc] = arcLengthToCartesian(var_theta, var_s);
-% plot(xc, yc)
-% 
-% 
-% U_flex = computeFlexuralEnergy(var_theta, var_s)
-% 
-% %Compute inflextion point and inflexion index of the array
-% [inflexion_point, inf_idx] = computeInflexionPoint(xc, yc);
-% 
-% U_flex_CU = computeFlexuralEnergy(var_theta(1:inf_idx), var_s(1:inf_idx))
-% 
-% U_flex_CD = computeFlexuralEnergy(var_theta(inf_idx+1:end), var_s(inf_idx+1:end))
+save('bending_curve_lambda_5', 'X', 'Y',...
+    'U_flex_matrix', 'U_flex_CU_matrix', 'U_flex_CD_matrix',...
+    'CoF_matrix','hx','hy')
 
-% 
-% dydx = gradient(yc)./gradient(xc);
-% d2ydx = gradient(dydx)./gradient(xc);
+% save('energy_function', 'X', 'Y', 'U_flex_matrix')
 
 function fvalue = objectiveFunction(var_theta)
 
@@ -162,7 +185,15 @@ function [c, c_eq] = constraintFunctions(var_theta)
 
 end
 
+function plot_boundary(arc_length)
 
+    t = linspace(0,2*pi/3,100);
+    xt = arc_length*cos(t);
+    yt = arc_length*sin(t);
+    plot(xt, yt)
+    hold on
+
+end
 
 function [dthetads, d2thetads] = computeDifferentials(var_theta, var_s)
 
@@ -201,6 +232,27 @@ function [gx,gy] = computeNumericalGradient(F, hx, hy)
         
 end
 
+function CoF = computeCoF(Fx,Fy, ang)
+    
+    %First compute the magnitude and direction of contact force
+    
+    F_contact = [Fx, Fy, 0];
+    
+    %To ensure contact normal always points outward
+    if ang<=0
+        contact_normal = [-sin(ang), cos(ang), 0];
+    else
+        contact_normal = [sin(ang), -cos(ang), 0];
+    end
+
+    cone_theta = atan2(norm(cross(F_contact,contact_normal)),dot(F_contact,contact_normal));
+    
+    CoF = tan(cone_theta);
+
+
+
+end
+
 
 function [inflexion_point, inflexion_idx] = computeInflexionPoint(xc, yc)
 
@@ -215,6 +267,33 @@ function [inflexion_point, inflexion_idx] = computeInflexionPoint(xc, yc)
 
     
 end
+
+
+function [U_flex_CU, U_flex_CD] = compute_CUP_CAP_energies(var_theta, var_s)
+
+    smoothed_var_theta = smooth(var_theta, 'rlowess');
+    max_logical_vec = islocalmax(smoothed_var_theta).';
+    max_indices = find(max_logical_vec == 1, 1, 'first');
+    
+    if numel(max_indices) == 1
+        
+        U_flex_CU = computeFlexuralEnergy(...
+                            var_theta(1:max_indices),...
+                            var_s(1:max_indices));
+                        
+        U_flex_CD = computeFlexuralEnergy(...
+                            var_theta(1+max_indices:end),...
+                            var_s(1+max_indices:end));
+        
+        
+    else
+        disp('Inflection Issues')
+        U_flex_CU = computeFlexuralEnergy(var_theta, var_s);
+        U_flex_CD = 0;
+    end
+    
+end
+
 
 
 function [X, Y] = sampleEnergyDomain(x_bound, y_bound, size)
